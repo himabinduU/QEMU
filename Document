@@ -1,0 +1,59 @@
+/*    Title :  “Hello World” on Qemu      */
+
+Before we continue, make sure your Linux already has Qemu inside. You also need to check whether your Linux already has GCC cross compiler or not. To check whether the compiler already installed on your linux, you can check by using:
+
+$ arm-linux-gnueabi-gcc --version
+
+If your Linux doesn’t has the compiler, you can install it:
+
+$ sudo apt-get install gcc-arm-linux-gnueabi
+
+Then, you need to prepare directory for your project. Example:
+
+$ cd
+$ mkdir Project
+$ cd Project
+
+Now we are in Project directory. In this directory, we will create sample code using C language to print “Hello World”, and compile linux source code. Then we will launch our software on Qemu.
+
+Create our sample code, and name it as init.c. This is the code:
+
+#include <stdio.h>
+
+void main() {
+  printf("Hello World!\n");
+  while(1);
+}
+
+Compile the code use gcc cross compiler and put in ramdisk:
+
+$ arm-linux-gnueabi-gcc -static init.c -o init
+$ echo init|cpio -o --format=newc > initramfs
+
+The next step is preparing directory for our Linux source code.
+
+$ mkdir Sources
+$ cd Sources
+
+Now we already in directory ~/Project/Sources.
+
+To get the latest Linux source code you can download from this is link https://www.kernel.org/pub/linux/kernel/v3.x/linux-3.9.tar.xz. Extract the file:
+
+$ tar -xJvf linux-3.9.tar.xz
+
+Go to Linux soure code directory and compile the code:
+
+$ cd linux-3.9
+$ make ARCH=arm CROSS_COMPILE=arm-linux-gnueabi- vexpress_defconfig
+$ make ARCH=arm CROSS_COMPILE=arm-linux-gnueabi- all
+
+It will take times depend on how fast your computer. The result of compilation is zImage. You can copy that file to our Project directory.
+
+$ cp arch/arm/boot/zImage ~/Project
+$ cd ~/Project
+
+Then let’s try to launch our code on Qemu:
+
+$ qemu-system-arm -M vexpress-a9 -kernel zImage -initrd initramfs -serial stdio -append "console=tty1"
+
+If everything is smooth, you will see text “Hello World” will be shown on Qemu console.
