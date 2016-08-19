@@ -1,0 +1,118 @@
+/*   Title : Building RFS with busybox on QEMU    */
+
+Building Busybox to get root file system to Linux kernel
+
+BusyBox – The Swiss Army Knife of Embedded Linux
+
+Busybox, is a set of utilities, compiled into a single executable and shown as multiple executable’s are available, by creating soft links with different names.
+
+TODO : Here is a example of how it can be achieved.
+
+Creating Busybox based Root FS.
+
+Here is an overview of what we are going to do.
+
+    Download the busybox source.
+    Configure
+    Build
+    Create Root File System image
+    Load using Qemu.
+
+Here, its detailed.
+
+1) Download the busybox source.
+
+Busybox source can be downloaded from busybox FTP site, here.
+
+mkdir src;
+cd src;
+wget -c http://www.busybox.net/downloads/busybox-1.21.0.tar.bz2
+tar -xf busybox-1.21.0.tar.bz2
+cd busybox-1.21.0;
+
+2) Configure busybox
+
+BusyBox has menu based configuration. Any ways, to make it simpler to configure, busybox provides a set of configurations, as below.
+make target 	Description
+help 	Show the complete list of make options
+defconfig 	Enable a default (generic) configuration
+allnoconfig 	Disable all applications (empty configuration)
+allyesconfig 	Enable all applications (complete configuration)
+allbareconfig 	Enable all applications, but no subfeatures
+config 	Text-based configurator
+menuconfig 	N-curses (menu-based) configurator
+all 	Build the BusyBox binary and documentation (./docs)
+install 	Build and make it ready to install at INSTALL PREFIX directory (./_install)
+busybox 	Build the BusyBox binary
+clean 	Clean the source tree
+distclean 	Completely clean the source tree
+sizes 	Emit the text/data sizes of the enabled applications
+
+Out of these, we are going to use, defconfig.
+
+export ARCH=arm;
+export CROSS_COMPILE=arm-none-linux-gnueabi-;
+make defconfig;
+
+Now, we need to customize this busybox, so that we can run it along with linux kernel as individual.
+
+Build busybox as a static library, as we wont have libc in the linux kernel we are booting.
+
+This can be done by following.
+
+make menuconfig
+# Enable   Busybox Settings--->Build Options---> [*] Build BusyBox as a static binary (no shared libs)
+
+3) Build busybox
+
+Now, we can build the busybox, using make install command
+
+make -j4 install
+
+Now,after build, we would have got the busybox install directory at busyboz-1.21.0/_install/
+
+[Update] Note : If the build fails with error as below, Source
+
+networking/lib.a(inetd.o): In function `register_rpc':
+inetd.c:(.text.register_rpc+0x2c): undefined reference to `pmap_unset'
+inetd.c:(.text.register_rpc+0x42): undefined reference to `pmap_set'
+networking/lib.a(inetd.o): In function `prepare_socket_fd':
+inetd.c:(.text.prepare_socket_fd+0x52): undefined reference to
+`bindresvport'
+collect2: error: ld returned 1 exit status
+make: *** [busybox_unstripped] Error 1
+
+Disable RPC support as below
+
+Via menuconfig:
+ Networking Utilities  --->
+   []   Support RPC services
+
+4) Create Root Filesystem image.
+
+[TODO] As we have seen, initramfs supports newc file format. We are going to create a cpio archive to hold the root filesystem.
+
+$ mkdir ../init/
+$ cd _install;
+$ find . | cpio -o --format=newc > ../../init/rootfs.img
+$ cd ../../init;
+$ file rootfs.img
+   ASCII cpio archive (SVR4 with no CRC)
+$ cd ../
+
+5) Booting using initramfs we have built.
+
+Now, we have the kernel built previously, rootfs that we have built now.
+
+Lets boot it using qemu
+
+$ qemu-system-arm -M versatilepb -kernel zImage -initrd init/rootfs.img -append "root=/dev/ram rdinit=/bin/sh"
+
+The system would have booted and the shell prompt would be shown.
+You can try ls on this to find something like this..
+
+/ # ls
+bin    dev    linuxrc    root    sbin    usr
+/ #
+
+
