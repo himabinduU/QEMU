@@ -1,0 +1,235 @@
+/*   Title : Building RFS using Autotools   */
+
+Root Filesystem
+Kernel Boot Sequence
+
+    During boot up, kernel initializes its subsystems
+
+    Mounts the root filesystem
+
+    Executes /sbin/init, the first user space process
+
+Root Filesystem
+
+    Contains the top level directories of the system
+
+        bin
+
+        lib
+
+        etc
+
+        tmp
+
+        var
+
+    Contains the first user space application, usually init
+
+    And all its dependencies
+
+Autotool Intro
+Autotools
+
+    Most free software use the GNU Autotools for configuration and build.
+
+    Configuration is primarily used for
+
+        Automatic Feature Selection
+
+        Manual Feature Selection
+
+Automatic Feature Selection
+Unix Variants
+
+    Unix-like operation systems
+
+        Linux
+
+        Solaris
+
+        FreeBSD
+
+        NetBSD
+
+    Provide same set of commands and system calls
+
+    But differ in minor ways
+
+    Hard to write program that compiles / runs on all variants
+
+
+Autotools
+
+    Autotools generates a configure script to do feature probing
+
+    Generates config.h with results of the probe
+
+    Can also check for the presence of libraries
+
+    If feature is optional, will continue with macro indicating feature not available
+
+    If feature is required, will halt indicating feature is missing
+
+Try Out
+
+    Goto ~/yp/dl
+
+    Download bash from http://ftp.gnu.org/gnu/bash/bash-4.3.tar.gz
+
+    cd ~/yp/dl
+    wget -c http://ftp.gnu.org/gnu/bash/bash-4.3.tar.gz
+
+    Goto ~/yp/auto
+
+    Extract bash-4.3.tar.gz
+
+    cd ~/yp/auto
+    tar -x -f ~/yp/dl/bash-4.3.tar.gz
+
+    Change into bash-4.3 and run ./configure, check the contents of config.h
+
+Manual Feature Selection
+Manual Configuration
+
+    Kernel can be configured using a menu interface
+
+    Features required and not required can be selected
+
+Autotools
+
+    configure script allows user to specify what features are required through options.
+
+    Example: --enable-gui=no, --with-gtk=yes, --with-qt=no
+
+    These are recorded into config.h as well.
+
+Try Out
+
+    Configure bash with history disabled
+
+    ./configure --enable-history=no
+
+    Is the HISTORY macro defined in config.h?
+
+    Now try configuring with history enabled
+
+Using Autotools
+Building Programs
+
+    Programs that use Autotools can be built using the following sequence of commands.
+
+$ ./configure
+$ make
+$ make install
+
+    The configure script does automatic feature selection.
+
+    Manual feature selection can be done by passing options to the configure script.
+
+Cross Compilation
+
+    Autotools naming convention
+
+        host - system in which application will be executed (the target system)
+
+        build - system in which application is built
+
+    Systems are identified by a canonical name: arch-vendor-kernel-os
+
+    Example: arm-none-linux-gnu, i686-pc-linux-gnu, sparc-sun-solaris
+
+Cross Compilation (Contd.)
+
+    The canononical name of the host is same as the prefix of the cross compiler
+
+    It is also recommended the build system also be specified during cross compilation
+
+    $ ./configure --host=arm-none-linux-gnueabi --build=i686-pc-linux-gnu
+    $ make
+    $ make install
+
+Try Out
+
+    Reconfigure bash for cross compile and build
+
+    ./configure --host=arm-none-linux-gnueabi --build=i686-pc-linux-gnu
+    make
+
+    Check the binary file architecture, using file command.
+
+Program Prefix
+
+    In a manual build, programs assume to be installed in /usr/local
+
+    When the program wants to access it’s data file, it does as
+
+        fd = open("/usr/local/share/vlc/icon.png");
+
+    Package manager does not interfere with files present in /usr/local/.
+
+    The program to reside under /usr, the --prefix option can be used
+
+    $ ./configure --prefix=/usr
+
+    Creates a PREFIX macro definition in config.h.
+
+    All static data files are accessed relative to PREFIX.
+
+        fd = open(PREFIX "/share/vlc/icon.png");
+
+Try Out
+
+    Check the binary of strings containing /usr/local/share
+
+    strings bash | grep '/usr/local/share'
+
+    Reconfigure bash with /usr prefix, and check strings for /usr/share
+
+Install Directory
+
+    Just make install installs into system folders
+
+    In a cross compile, install should copy files to root filesystem.
+
+    Specify the DESTDIR variable during make install.
+
+    $ make install DESTDIR=/path/to/root
+
+Try Out
+
+    Run make install (as non-root).
+
+    Run make install with DESTDIR set.
+
+    make install DESTDIR=~/yp/auto/rootfs
+
+    Verify the contents of ~/yp/auto/rootfs
+
+Creating the Root Filesystem image.
+    
+    Go into the yp/auto/rootfs path, we will be having all the necessary minimal root filesystem in the rootfs directory.
+
+    Create an image using the following command.
+
+    $ find . | cpio -o --format=newc > ../../init/rootfs.img
+    
+    $ cd ../../init;
+    
+    $ file rootfs.img
+       ASCII cpio archive (SVR4 with no CRC)
+
+Booting using initramfs we have built.
+
+Now, we have the kernel built previously, rootfs that we have built now.
+
+    Lets boot it using qemu
+
+    $ qemu-system-arm -M versatilepb -kernel zImage -initrd init/rootfs.img -append "root=/dev/ram rdinit=/bin/sh"
+
+    The system would have booted and the shell prompt would be shown.
+    You can try ls on this to find something like this..
+
+    / # ls
+    bin    dev    linuxrc    root    sbin    usr 
+    / #
+
